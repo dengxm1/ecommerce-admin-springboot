@@ -85,6 +85,8 @@
   - `system_role.tenant_id` → `system_tenant.id`
   - 其他业务表的 `tenant_id` 均引用此表
 
+**建表SQL语句：**
+
 ```
 CREATE TABLE `system_tenant` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '租户ID',
