@@ -69,9 +69,21 @@
 
 ## 预留扩展租户表
 
-> 新增租户表（`system_tenant` 核心、用于预留多租户扩展功能）
+> 租户表（`system_tenant` 核心、用于预留多租户扩展功能）
 
 这是所有扩展的基础。
+
+**设计目的**：为系统提供租户维度的数据隔离基础。本表的 `id` 字段将作为其他业务表（如用户表、角色表）中的外键 `tenant_id`，实现：
+
+  1. **数据归属**：明确每条数据属于哪个租户
+  2. **查询隔离**：通过 `tenant_id` 条件筛选特定租户的数据
+  3. **权限控制**：确保用户只能访问所属租户的数据
+
+**关联关系**：
+
+  - `system_user.tenant_id` → `system_tenant.id`
+  - `system_role.tenant_id` → `system_tenant.id`
+  - 其他业务表的 `tenant_id` 均引用此表
 
 ```
 CREATE TABLE `system_tenant` (
@@ -96,7 +108,6 @@ INSERT INTO system_tenant (id, name) VALUES  (1, '默认商户');
 
 - **1. 超级管理员：**
 
-  - 进入「菜单管理」配置系统所有可用的菜单和按钮权限
   - 进入「角色管理」创建角色，并为角色分配菜单/按钮权限
   - 进入「用户管理」创建用户，为用户分配角色
 
@@ -106,45 +117,61 @@ INSERT INTO system_tenant (id, name) VALUES  (1, '默认商户');
   - 在页面上，根据按钮权限显示或隐藏操作按钮
 
 
-### 1.1 菜单管理 (`system/menu`)
+### 1.1 用户管理 (`system/user`)
 
-- **功能：动态构建系统导航骨架**。 创建和修改侧边栏菜单项。
+ - **功能**：管理系统的用户账户，包括创建、编辑、启用/禁用用户，以及为用户分配角色。
+ - **核心操作:**:
 
-- **核心设计理念：**：
+    1. **创建用户**：添加新用户账户，设置用户名、密码、基本信息等
+    2. **编辑用户**：修改用户的基本信息和账户状态
+    3. **启用/禁用**：控制用户账户的登录权限
+    4. **分配角色**：将用户关联到特定角色，从而继承角色的权限集合
+    5. **重置密码**：为用户重置登录密码
 
-  - **分层结构**：采用树形结构组织菜单项，支持无限级目录嵌套，便于构建清晰、逻辑分明的系统导航。
-  - **类型化配置**：菜单分为目录、菜单、按钮三种类型，分别对应导航容器、可访问页面及操作权限点，实现精细化权限控制。
-  - **动态路由映射**：菜单配置自动同步至前端路由，实现权限与导航的动态绑定，用户登录后仅能看到并访问其权限范围内的菜单与功能。
-  - **租户级隔离**：通过 tenant_id 字段区分平台级与租户级菜单，为未来升级为多租户SaaS平台提供架构支持。当前单商户系统中，所有租户级菜单默认关联至租户ID为1的“默认商户”。
+- **权限控制：**
 
-- **管理流程：**
+   - 只有超级管理员和有用户管理权限的管理员可以管理用户
+   - 用户只能被分配到自己权限范围内的角色
 
-  1. 系统内置完整的菜单结构，管理员无法直接新增、删除或修改菜单项。
-  2. 菜单项在系统初始化时已定义，包含了所有可能的业务功能和页面
-  3. 管理员在"角色管理"界面中，通过勾选菜单树的方式，为不同角色分配菜单访问权限
-  4. 系统根据角色与菜单的关联关系，动态生成用户侧边栏导航
-  5. 前端根据用户所属角色获取对应的菜单权限，渲染出可访问的导航菜单
 
-### 1.2 用户管理 (`system/user`)
+### 1.2 角色管理 (`system/role`)
 
- - **功能**：将**用户**与**角色**关联起来。
- - **操作**:
+- **功能**：这是**授权的核心**。通过角色管理实现细粒度的权限控制，为不同类型的用户定义不同的访问权限集合。
 
-    1. 在用户列表，点击“分配角色”。
-    2. 从角色列表（如“超级管理员”、“商品运营”、“订单客服”）中，为该用户选择一个或多个角色。
-    3. 系统后端会存储为：**用户ID** 关联 一个或多个 **角色ID**。
+- **核心操作**
 
-### 1.3 角色管理 (`system/role`)
+    1. 创建角色：定义新的角色（如"运营专员"、"客服专员"、"财务人员"等）
+    2. 编辑角色：修改角色名称、描述等信息
+    3. 删除角色：移除不再需要的角色（需确保无用户关联）
+    4. 分配权限：为角色配置可访问的菜单和操作按钮权限
 
-- **功能**：这是**授权的核心**。在这里为每个角色（如“管理员”、“客服”）分配具体的权限。
-- **操作**
+- **权限分配流程：**
 
-    1. 创建角色（如“运营专员”）。
-    2. 点击“分配权限”，弹出对话框，展示从【权限管理】那里生成的**权限树**。
-    3. 勾选这个角色所能访问的所有菜单和操作按钮。
-    4. 系统后端存储为：**角色ID** 关联 一堆 **权限码**。
+    1. 在角色列表中选中要配置的角色
+    2. 点击"分配权限"按钮，系统展示预定义的权限树
+    3. 权限树包含系统的所有菜单项和按钮操作，按模块层级组织
+    4. 通过勾选/取消勾选权限节点，为角色配置访问权限
+    5. 保存后，该角色下的所有用户将继承这些权限
 
-### 1.4 前端路由配置对应关系
+- **权限树特点：**
+
+  - 采用树形结构展示系统所有预定义菜单和按钮权限
+  - 支持按模块展开/收起，方便快速定位
+  - 提供全选、反选等批量操作功能
+  - 权限继承关系清晰，父节点选中时自动选中所有子节点
+
+- **权限生效机制：**
+
+  1. **权限数据获取** ：用户登录时，后端根据用户关联的角色查询对应的菜单权限集合
+  2. **路由动态注册**：前端接收后端返回的菜单/路由配置，动态添加到Vue Router中
+  3. **菜单渲染**：侧边栏根据动态注册的路由信息生成导航菜单
+  4. **按钮权限控制：**
+
+    - 菜单项通过路由控制访问权限
+    - 按钮级操作通过`permission`字段控制，前端根据权限标识显示/隐藏操作按钮
+  5. **接口权限验证**：后端接口进行角色和权限验证，防止越权访问
+
+### 1.3 前端路由配置对应关系
 
 ```
 // 前端路由结构 - 这对应了菜单的层级
@@ -180,12 +207,6 @@ const routes = [
             name: 'RoleManagement',
             component: () => import('@/views/system/role/index.vue'),
             meta: { title: '角色管理', icon: 'ep:lock' }
-          },
-          {
-            path: 'menu',
-            name: 'MenuManagement', 
-            component: () => import('@/views/system/menu/index.vue'),
-            meta: { title: '菜单管理', icon: 'ep:menu' }
           }
         ]
       }
@@ -196,16 +217,22 @@ const routes = [
 
 #### 1.5.1 菜单表 (`system_menu` 区分平台级和租户级菜单)
 
-**作用**：存储整个系统的导航结构，包括目录、菜单和按钮。
+**作用**：存储整个系统的导航结构，包括目录、菜单和按钮。所有菜单在系统初始化时一次性创建，确保结构稳定。
 
-> 说明：为了预留SaaS功能，需要区分平台级和租户级菜单，平台级菜单用于系统的管理员对各组租户商家的管理。
+**为什么菜单存在数据库中，而不是直接写在前端代码里？**
 
-> 新增租户ID字段`tenant_id` (0:平台级菜单, >0:租户级菜单) ，目前是单商户系统，所以组户级值设置为1
+说实话，两种方式都能实现权限控制，区别主要在**架构思维**和**开发习惯**上：
+
+  1. **传统RBAC模式**：企业级系统常用做法，把菜单当作"数据"来管理
+  2. **后端思维**：权限判断逻辑放在后端更集中，前端只负责展示
+  3. **查询方便**：要查"某个角色有哪些权限"，SQL联表比读前端配置文件方便
+  4. **统一管理**：菜单、用户、角色都在数据库里，维护起来一致
+> 注：其实前端硬编码菜单+后端返回权限标识也能实现同样的权限控制。选择数据库存储更多是遵循传统企业系统架构，同时为未来可能的SaaS升级留个设计基础。
+
 
 | 字段名	|  类型	| 键	|为空	| 说明 |
 |--|--|--|--|--|
 |  `id`	| `bigint` |	 PK	| NOT	| 主键，自增 |
-| `tenant_id` |	`bigint`	 | FK |	NOT, Default: 0	| 租户ID(0:平台级菜单, >0:租户级菜单) |
 | `parent_id` |	`bigint`	 | FK |	NOT, Default: 0	| 父级菜单ID，0表示一级菜单 |
 | `name`	|`varchar(64)`	|	| NOT	| 菜单名称（如“订单中心”）|
 | `type`	| `tinyint` |		| NOT | 类型：1-目录 2-菜单 3-按钮 |
@@ -223,26 +250,22 @@ const routes = [
 ```
 CREATE TABLE `system_menu` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户ID(0:平台级菜单, >0:租户级菜单)',
-  `parent_id` bigint NOT NULL DEFAULT 0 COMMENT '父级菜单ID',
+  `parent_id` bigint NOT NULL DEFAULT '0' COMMENT '父级菜单ID',
   `name` varchar(64) NOT NULL COMMENT '菜单名称',
   `type` tinyint NOT NULL COMMENT '1-目录 2-菜单 3-按钮',
   `path` varchar(255) DEFAULT NULL COMMENT '路由路径',
   `component` varchar(255) DEFAULT NULL COMMENT '组件路径',
   `icon` varchar(64) DEFAULT NULL COMMENT '图标',
-  `sort` int NOT NULL DEFAULT 0 COMMENT '排序',
+  `sort` int NOT NULL DEFAULT '0' COMMENT '排序',
   `permission` varchar(100) DEFAULT NULL COMMENT '权限标识',
-  `is_visible` tinyint NOT NULL DEFAULT 1 COMMENT '是否显示(1:是, 0:否)',
+  `is_visible` tinyint NOT NULL DEFAULT '1' COMMENT '是否显示(1:是, 0:否)',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_tenant_permission` (`tenant_id`, `permission`),
-  KEY `idx_parent_id` (`parent_id`),
-  KEY `idx_tenant_id` (`tenant_id`),
-  CONSTRAINT `fk_menu_tenant` FOREIGN KEY (tenant_id) REFERENCES system_tenant(id)  ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB COMMENT='系统菜单表';
+  UNIQUE KEY `uk_permission` (`permission`),
+  KEY `idx_parent_id` (`parent_id`)
+) ENGINE=InnoDB COMMENT='系统菜单表'
 
--- 初始化租户级菜单（tenant_id = 1）
 SET @system_id = 0;
 SET @product_id = 0;
 SET @order_id = 0;
@@ -254,64 +277,55 @@ SET @analysis_id = 0;
 SET @settings_id = 0; 
 
 -- 插入父菜单并获取ID
-INSERT INTO `system_menu` (`tenant_id`, `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
-(1, 0, '系统管理', 1, '/system', NULL, 'ep:setting', 1, 'system:view', 1);
+INSERT INTO `system_menu` ( `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
+(0, '系统管理', 1, '/system', NULL, 'ep:setting', 1, 'system:view', 1);
 SET @system_id = LAST_INSERT_ID();
-INSERT INTO `system_menu` (`tenant_id`, `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
-(1, 0, '商品管理', 1, '/product', NULL, 'ep:goods', 2, 'product:view', 1);
+INSERT INTO `system_menu` ( `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
+(0, '商品管理', 1, '/product', NULL, 'ep:goods', 2, 'product:view', 1);
 SET @product_id = LAST_INSERT_ID();
-INSERT INTO `system_menu` (`tenant_id`, `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
-(1, 0, '订单管理', 1, '/order', NULL, 'ep:sold-out', 3, 'order:view', 1);
+INSERT INTO `system_menu` ( `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
+(0, '订单管理', 1, '/order', NULL, 'ep:sold-out', 3, 'order:view', 1);
 SET @order_id = LAST_INSERT_ID();
-INSERT INTO `system_menu` (`tenant_id`, `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
-(1, 0, '仓库管理', 1, '/warehouse', NULL, 'ep:office-buiding', 4, 'warehouse:view', 1);
+INSERT INTO `system_menu` ( `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
+(0, '仓库管理', 1, '/warehouse', NULL, 'ep:office-buiding', 4, 'warehouse:view', 1);
 SET @warehouse_id = LAST_INSERT_ID();
-INSERT INTO `system_menu` (`tenant_id`, `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
-(1, 0, '营销管理', 1, '/marketing', NULL, 'ep:promotion', 5, 'marketing:view', 1);
+INSERT INTO `system_menu` (`parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
+(0, '营销管理', 1, '/marketing', NULL, 'ep:promotion', 5, 'marketing:view', 1);
 SET @marketing_id = LAST_INSERT_ID();
-INSERT INTO `system_menu` (`tenant_id`, `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
-(1, 0, '会员管理', 1, '/member', NULL, 'ep:user-filled', 6, 'member:view', 1);
+INSERT INTO `system_menu` (`parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
+(0, '会员管理', 1, '/member', NULL, 'ep:user-filled', 6, 'member:view', 1);
 SET @member_id = LAST_INSERT_ID();
-INSERT INTO `system_menu` (`tenant_id`, `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
-(1, 0, '财务管理', 1, '/finance', NULL, 'ep:money', 7, 'finance:view', 1);
+INSERT INTO `system_menu` (`parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
+(0, '财务管理', 1, '/finance', NULL, 'ep:money', 7, 'finance:view', 1);
 SET @finance_id = LAST_INSERT_ID();
-INSERT INTO `system_menu` (`tenant_id`, `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
-(1, 0, '数据分析', 1, '/analysis', NULL, 'ep:data-analysis', 8, 'analysis:view', 1);
+INSERT INTO `system_menu` (`parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
+(0, '数据分析', 1, '/analysis', NULL, 'ep:data-analysis', 8, 'analysis:view', 1);
 SET @analysis_id = LAST_INSERT_ID();
-INSERT INTO `system_menu` (`tenant_id`, `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
-(1, 0, '系统设置', 1, '/settings', NULL, 'ep:tools', 9, 'settings:view', 1);
+INSERT INTO `system_menu` (`parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES 
+(0, '系统设置', 1, '/settings', NULL, 'ep:tools', 9, 'settings:view', 1);
 SET @settings_id = LAST_INSERT_ID();
 
 -- 插入子菜单
-INSERT INTO `system_menu` (`tenant_id`, `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES
-(1, @system_id, '用户管理', 2, '/system/user', 'system/user/index', 'ep:user', 1, 'system:user:view', 1),
-(1, @system_id, '角色管理', 2, '/system/role', 'system/role/index', 'ep:lock', 2, 'system:role:view', 1),
-(1, @system_id, '菜单管理', 2, '/system/menu', 'system/menu/index', 'ep:menu', 3, 'system:menu:view', 1),
-(1, @product_id, '商品列表', 2, '/product/list', 'product/list/index', 'ep:list', 1, 'product:list:view', 1),
-(1, @product_id, '分类管理', 2, '/product/category', 'product/category/index', 'ep:grid', 2, 'product:category:view', 1),
-(1, @order_id, '订单列表', 2, '/order/list', 'order/list/index', 'ep:document', 1, 'order:list:view', 1),
-(1, @warehouse_id, '仓库列表', 2, '/warehouse/list', 'warehouse/list/index', 'ep:list', 1, 'warehouse:list:view', 1),
-(1, @warehouse_id, '库存管理', 2, '/warehouse/inventory', 'warehouse/inventory/index', 'ep:box', 2, 'warehouse:inventory:view', 1),
-(1, @warehouse_id, '库位管理', 2, '/warehouse/location', 'warehouse/location/index', 'ep:location', 3, 'warehouse:location:view', 1),
-(1, @marketing_id, '优惠券', 2, '/marketing/coupon', 'marketing/coupon/index', 'ep:discount', 1, 'marketing:coupon:view', 1),
-(1, @marketing_id, '促销活动', 2, '/marketing/promotion', 'marketing/promotion/index', 'ep:present', 2, 'marketing:promotion:view', 1),
-(1, @member_id, '会员列表', 2, '/member/list', 'member/list/index', 'ep:list', 1, 'member:list:view', 1),
-(1, @member_id, '会员等级', 2, '/member/level', 'member/level/index', 'ep:sort-up', 2, 'member:level:view', 1),
-(1, @finance_id, '营销统计', 2, '/finance/revenue', 'finance/revenue/index', 'ep:trend-charts', 1, 'finance:revenue:view', 1),
-(1, @finance_id, '提现管理', 2, '/finance/withdraw', 'finance/withdraw/index', 'ep:bank-card', 2, 'finance:withdraw:view', 1),
-(1, @analysis_id, '销售分析', 2, '/analysis/sales', 'analysis/sales/index', 'ep:pie-chart', 1, 'analysis:sales:view', 1),
-(1, @analysis_id, '客户分析', 2, '/analysis/customer', 'analysis/customer/index', 'ep:user', 2, 'analysis:customer:view', 1),
-(1, @settings_id, '基础设置', 2, '/settings/basic', 'settings/basic/index', 'ep:setting', 1, 'settings:basic:view', 1),
-(1, @settings_id, '支付设置', 2, '/settings/payment', 'settings/payment/index', 'ep:credit-card', 2, 'settings:payment:view', 1);
-
-
--- 初始化平台级菜单--saas预留扩展功能，单商户系统不需要（tenant_id = 0）
-INSERT INTO `system_menu` (`tenant_id`, `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES
-(0, 0, '系统管理', 1, '/system', NULL, 'ep:setting', 100, 'system:manage', 1),
-(0, 1, '租户管理', 2, '/system/tenant', 'system/tenant/index', 'ep:office-building', 101, 'system:tenant:view', 1),
-(0, 1, '用户管理', 2, '/system/user', 'system/user/index', 'ep:user', 102, 'system:user:view', 1),
-(0, 1, '角色管理', 2, '/system/role', 'system/role/index', 'ep:lock', 103, 'system:role:view', 1),
-(0, 1, '菜单管理', 2, '/system/menu', 'system/menu/index', 'ep:menu', 104, 'system:menu:view', 1);
+INSERT INTO `system_menu` ( `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES
+(@system_id, '用户管理', 2, '/system/user', 'system/user/index', 'ep:user', 1, 'system:user:view', 1),
+(@system_id, '角色管理', 2, '/system/role', 'system/role/index', 'ep:lock', 2, 'system:role:view', 1),
+(system_id, '菜单管理', 2, '/system/menu', 'system/menu/index', 'ep:menu', 3, 'system:menu:view', 1),
+(@product_id, '商品列表', 2, '/product/list', 'product/list/index', 'ep:list', 1, 'product:list:view', 1),
+(@product_id, '分类管理', 2, '/product/category', 'product/category/index', 'ep:grid', 2, 'product:category:view', 1),
+(@order_id, '订单列表', 2, '/order/list', 'order/list/index', 'ep:document', 1, 'order:list:view', 1),
+(@warehouse_id, '仓库列表', 2, '/warehouse/list', 'warehouse/list/index', 'ep:list', 1, 'warehouse:list:view', 1),
+(@warehouse_id, '库存管理', 2, '/warehouse/inventory', 'warehouse/inventory/index', 'ep:box', 2, 'warehouse:inventory:view', 1),
+(@warehouse_id, '库位管理', 2, '/warehouse/location', 'warehouse/location/index', 'ep:location', 3, 'warehouse:location:view', 1),
+(@marketing_id, '优惠券', 2, '/marketing/coupon', 'marketing/coupon/index', 'ep:discount', 1, 'marketing:coupon:view', 1),
+(@marketing_id, '促销活动', 2, '/marketing/promotion', 'marketing/promotion/index', 'ep:present', 2, 'marketing:promotion:view', 1),
+(@member_id, '会员列表', 2, '/member/list', 'member/list/index', 'ep:list', 1, 'member:list:view', 1),
+(@member_id, '会员等级', 2, '/member/level', 'member/level/index', 'ep:sort-up', 2, 'member:level:view', 1),
+(@finance_id, '营销统计', 2, '/finance/revenue', 'finance/revenue/index', 'ep:trend-charts', 1, 'finance:revenue:view', 1),
+(@finance_id, '提现管理', 2, '/finance/withdraw', 'finance/withdraw/index', 'ep:bank-card', 2, 'finance:withdraw:view', 1),
+(@analysis_id, '销售分析', 2, '/analysis/sales', 'analysis/sales/index', 'ep:pie-chart', 1, 'analysis:sales:view', 1),
+(@analysis_id, '客户分析', 2, '/analysis/customer', 'analysis/customer/index', 'ep:user', 2, 'analysis:customer:view', 1),
+(@settings_id, '基础设置', 2, '/settings/basic', 'settings/basic/index', 'ep:setting', 1, 'settings:basic:view', 1),
+(@settings_id, '支付设置', 2, '/settings/payment', 'settings/payment/index', 'ep:credit-card', 2, 'settings:payment:view', 1);
 ```
 #### 1.5.2 角色表 (`system_role` 租户内角色编码唯一)
 
@@ -417,12 +431,15 @@ CREATE TABLE `system_role_menu` (
   PRIMARY KEY (`role_id`, `menu_id`),
   KEY `idx_menu_id` (`menu_id`),
   CONSTRAINT `fk_role_menu_role` FOREIGN KEY (role_id) references system_role (id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_role_menu_menu` FOREIGN KEY (menu_id) REFERENCES system_menu (id) ON DELETE CASCADE ON UPDATE cascade
+  CONSTRAINT `fk_role_menu_menu` FOREIGN KEY (menu_id) 
+  REFERENCES system_menu (id)
+  ON DELETE RESTRICT  -- 防止菜单被意外删除
+  ON UPDATE CASCADE   -- 菜单ID更新时，关联表同步更新
 ) ENGINE=InnoDB COMMENT='角色菜单关联表';
 
 -- 为租户超级管理员分配所有租户级菜单权限
 INSERT INTO `system_role_menu` (`role_id`, `menu_id`) 
-SELECT 1, id FROM `system_menu` WHERE tenant_id = 1;
+SELECT 1, id FROM `system_menu`;
 
 ```
 
@@ -457,9 +474,10 @@ INSERT INTO `system_user_role` (`user_id`, `role_id`) VALUES
 #### 关键设计说明
 
 1. **租户隔离**：所有表都有 tenant_id 字段，为SaaS化做准备
-2. **菜单分级**：`tenant_id=0` 是平台级菜单，`tenant_id>0` 是租户级菜单
-3. **唯一约束**: 使用 `(tenant_id, field)` 组合唯一键，保证租户内数据唯一性
-4. **初始化数据**:包含默认的租户、菜单、角色和用户，开箱即用
+2. **菜单预定义**：系统菜单通过初始化SQL静态定义，确保系统架构的稳定性
+3. **权限控制**：通过角色-菜单关联实现细粒度的权限分配
+4. **唯一约束**: 使用 `(tenant_id, field)` 组合唯一键，保证租户内数据唯一性
+5. **初始化数据**:包含默认的租户、菜单和角色，开箱即用
 
 
 # 三、其他说明
@@ -839,6 +857,33 @@ WHERE u.username = 'admin' AND r.code = 'TENANT_SUPER_ADMIN';
 INSERT INTO `system_role_menu` (`role_id`, `menu_id`) 
 SELECT r.id, m.id 
 FROM `system_role` r, `system_menu` m 
-WHERE r.code = 'TENANT_SUPER_ADMIN' AND m.tenant_id = 1;
+WHERE r.code = 'TENANT_SUPER_ADMIN';
 ```
 
+## 更优雅的菜单表
+
+> 适用于多租户saas系统中，不同租户需要定制化菜单的情况
+
+```
+-- 菜单模板表（存标准菜单结构）
+CREATE TABLE `menu_template` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(64) NOT NULL,
+  `type` tinyint NOT NULL,
+  `path` varchar(255) DEFAULT NULL,
+  `component` varchar(255) DEFAULT NULL,
+  `icon` varchar(64) DEFAULT NULL,
+  `sort` int NOT NULL DEFAULT 0,
+  `permission` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_permission` (`permission`)
+);
+
+-- 租户菜单表（关联到模板）
+CREATE TABLE `tenant_menu` (
+  `tenant_id` bigint NOT NULL,
+  `template_id` bigint NOT NULL,
+  `is_enabled` tinyint DEFAULT 1,
+  PRIMARY KEY (`tenant_id`, `template_id`)
+);
+```
