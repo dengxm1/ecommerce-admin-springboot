@@ -266,7 +266,7 @@ CREATE TABLE `system_menu` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_permission` (`permission`),
   KEY `idx_parent_id` (`parent_id`)
-) ENGINE=InnoDB COMMENT='系统菜单表'
+) ENGINE=InnoDB COMMENT='系统菜单表';
 
 SET @system_id = 0;
 SET @product_id = 0;
@@ -311,7 +311,7 @@ SET @settings_id = LAST_INSERT_ID();
 INSERT INTO `system_menu` ( `parent_id`, `name`, `type`, `path`, `component`, `icon`, `sort`, `permission`, `is_visible`) VALUES
 (@system_id, '用户管理', 2, '/system/user', 'system/user/index', 'ep:user', 1, 'system:user:view', 1),
 (@system_id, '角色管理', 2, '/system/role', 'system/role/index', 'ep:lock', 2, 'system:role:view', 1),
-(system_id, '菜单管理', 2, '/system/menu', 'system/menu/index', 'ep:menu', 3, 'system:menu:view', 1),
+(@system_id, '菜单管理', 2, '/system/menu', 'system/menu/index', 'ep:menu', 3, 'system:menu:view', 1),
 (@product_id, '商品列表', 2, '/product/list', 'product/list/index', 'ep:list', 1, 'product:list:view', 1),
 (@product_id, '分类管理', 2, '/product/category', 'product/category/index', 'ep:grid', 2, 'product:category:view', 1),
 (@order_id, '订单列表', 2, '/order/list', 'order/list/index', 'ep:document', 1, 'order:list:view', 1),
@@ -464,8 +464,8 @@ CREATE TABLE `system_user_role` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`, `role_id`),
   KEY `idx_role_id` (`role_id`),
-  CONSTRAINT `fk_user_role_user` FOREIGN KEY (user_id) REFERENCES system_user (id),
-  CONSTRAINT `fk_user_role_role` FOREIGN KEY (role_id) REFERENCES system_role (id)
+  CONSTRAINT `fk_user_role_user` FOREIGN KEY (user_id) REFERENCES system_user (id) on delete cascade on update cascade,
+  CONSTRAINT `fk_user_role_role` FOREIGN KEY (role_id) REFERENCES system_role (id) on delete restrict on update cascade
 ) ENGINE=InnoDB COMMENT='用户角色关联表';
 
 -- 初始化用户角色关联表
@@ -480,6 +480,26 @@ INSERT INTO `system_user_role` (`user_id`, `role_id`) VALUES
 3. **权限控制**：通过角色-菜单关联实现细粒度的权限分配
 4. **唯一约束**: 使用 `(tenant_id, field)` 组合唯一键，保证租户内数据唯一性
 5. **初始化数据**:包含默认的租户、菜单和角色，开箱即用
+
+6. 用户-角色约束：ON DELETE CASCADE
+
+    **为什么用CASCADE？**
+    - 业务逻辑：用户离职/注销后，其权限关联应该立即失效
+    - 数据清理：避免系统积累大量无效的用户-角色关联记录
+    - 安全性：防止已离职员工仍保留系统访问权限
+    - 性能：自动清理，无需手动维护关联表
+    **实际场景：**
+    - 员工离职 → 删除用户账号 → 自动清理其所有角色权限
+    - 用户注销账户 → 自动移除所有权限关联
+
+7. 角色-用户约束：ON DELETE RESTRICT
+
+    **为什么用RESTRICT？**
+
+    -  业务保护：角色通常有多个用户在使用，不能轻易删除
+    -  风险控制：避免误删角色导致大量用户突然失去权限
+    - 流程规范：删除角色需要管理员明确操作，先迁移用户到其他角色
+    -  审计需要：角色删除应该是一个经过审批的变更操作
 
 
 # 三、其他说明
