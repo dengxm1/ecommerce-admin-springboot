@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    
+<mapper namespace="com.dengyuheng.ecommerce.mapper.SystemUserMapper">
+    <select id="findByUsername" parameterType="String" resultType="SystemUser">
+        SELECT 
+            id,
+            tenant_id,
+            username,
+            password,
+            nickname,
+            email,
+            phone,
+            avatar,
+            is_enabled,
+            last_login_time,
+            create_time,
+            update_time
+        FROM system_user
+        WHERE username = #{username}
+    </select>
+    <insert id="insertSystemUser" parameterType="SystemUser" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO system_user
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            username,
+            password,
+            <if test="nickname != null">nickname,</if>
+            <if test="email != null">email,</if>
+            <if test="phone != null">phone,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            #{username},
+            #{password},
+            <if test="nickname != null">#{nickname},</if>
+            <if test="email != null">#{email},</if>
+            <if test="phone != null">#{phone},</if>
+        </trim>
+    </insert>
+</mapper>
