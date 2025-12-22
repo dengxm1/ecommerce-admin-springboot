@@ -14,7 +14,11 @@ import com.dengyuheng.ecommerce.dto.response.LoginResponse;
 import com.dengyuheng.ecommerce.entity.SystemUser;
 import com.dengyuheng.ecommerce.service.SystemUserService;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+
 
 
 
@@ -58,6 +62,23 @@ public class SystemUserController {
                 return ResponseEntity.ok(loginResponse);
             }catch(Exception e){
             return ResponseEntity.badRequest().body(e.getMessage());
+    }
+}
+
+
+@GetMapping("/getUserInfo")
+public ResponseEntity<?> getUserInfo(HttpServletRequest request){
+    try{
+        String userId = (String) request.getAttribute("userId");
+        Map<String,Object> user = systemUserService.getUserInfoById(Long.valueOf(userId));
+        if(user == null){
+            ApiResponse<Void> response = ApiResponse.error("用户不存在", 400);
+            return ResponseEntity.badRequest().body(response);
+        }
+        ApiResponse<Map<String,Object>> response = new ApiResponse<>("获取用户信息成功", user);
+        return ResponseEntity.ok(response);
+    }catch(Exception e){
+        return ResponseEntity.badRequest().body(e.getMessage());
     }
 }
 }

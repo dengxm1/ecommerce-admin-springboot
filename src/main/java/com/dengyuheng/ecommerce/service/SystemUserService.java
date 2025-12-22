@@ -64,4 +64,13 @@ public class SystemUserService {
     private Long getSuperAdminRoleId() {
         return systemRoleMapper.findIdByCode("TENANT_SUPER_ADMIN");
     }
+
+    public Map<String, Object> getUserInfoById(Long userId) {
+        Map<String, Object> user = systemUserService.getUserInfoById(userId);
+        if(user != null){
+            return user;
+        }
+        return null;
+
+    }
 }

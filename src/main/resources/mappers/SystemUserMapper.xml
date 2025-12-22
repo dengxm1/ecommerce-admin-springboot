@@ -3,22 +3,49 @@
     "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
     
 <mapper namespace="com.dengyuheng.ecommerce.mapper.SystemUserMapper">
+
+    <sql id="Base_Column_List">
+        id,
+        tenant_id,
+        username,
+        password,
+        nickname,
+        email,
+        phone,
+        avatar,
+        is_enabled,
+        last_login_time,
+        create_time,
+        update_time
+    </sql>
+
     <select id="findByUsername" parameterType="String" resultType="SystemUser">
         SELECT 
-            id,
-            tenant_id,
-            username,
-            password,
-            nickname,
-            email,
-            phone,
-            avatar,
-            is_enabled,
-            last_login_time,
-            create_time,
-            update_time
+           <include refid="Base_Column_List" />
         FROM system_user
         WHERE username = #{username}
+    </select>
+    <select id="getUserInfoById" parameterType="Long" resultType="map">
+        SELECT 
+            u.id,
+            u.tenant_id,
+            u.username,
+            u.nickname,
+            u.email,
+            u.phone,
+            u.avatar,
+            u.is_enabled,
+            u.last_login_time,
+            u.create_time,
+            u.update_time,
+            GROUP_CONCAT(DISTINCT r.name) as role_names,
+            GROUP_CONCAT(DISTINCT r.code) as role_codes,
+            GROUP_CONCAT(DISTINCT r.id) as role_ids
+        FROM system_user u
+        LEFT JOIN system_user_role ur ON u.id = ur.user_id
+        LEFT JOIN system_role r ON ur.role_id = r.id
+        WHERE u.id = #{id}
+        GROUP BY u.id
     </select>
     <insert id="insertSystemUser" parameterType="SystemUser" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO system_user
