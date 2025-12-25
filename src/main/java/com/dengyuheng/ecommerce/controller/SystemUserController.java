@@ -1,5 +1,6 @@
 package com.dengyuheng.ecommerce.controller;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.dengyuheng.ecommerce.config.JwtTokenUtil;
 import com.dengyuheng.ecommerce.dto.common.ApiResponse;
 import com.dengyuheng.ecommerce.dto.response.LoginResponse;
+import com.dengyuheng.ecommerce.entity.SystemMenu;
 import com.dengyuheng.ecommerce.entity.SystemUser;
 import com.dengyuheng.ecommerce.service.SystemUserService;
 
@@ -81,4 +83,16 @@ public ResponseEntity<?> getUserInfo(HttpServletRequest request){
         return ResponseEntity.badRequest().body(e.getMessage());
     }
 }
-}
+
+@GetMapping("/getUserMenu")
+public ResponseEntity<?> getUserMenu(HttpServletRequest request){
+    try{
+        String userId = (String) request.getAttribute("userId");
+        List<SystemMenu> menuList = systemUserService.getUserMenuByUserId(Long.valueOf(userId));
+        ApiResponse<List<SystemMenu>> response = new ApiResponse<>("获取用户菜单成功", menuList);
+        return ResponseEntity.ok(response); 
+    }catch(Exception e){
+        return ResponseEntity.badRequest().body(e.getMessage());
+    }
+}  
+} 

@@ -15,8 +15,8 @@
         avatar,
         is_enabled,
         last_login_time,
-        create_time,
-        update_time
+        created_at,
+        updated_at
     </sql>
 
     <select id="findByUsername" parameterType="String" resultType="SystemUser">
@@ -36,8 +36,8 @@
             u.avatar,
             u.is_enabled,
             u.last_login_time,
-            u.create_time,
-            u.update_time,
+            u.created_at,
+            u.updated_at,
             GROUP_CONCAT(DISTINCT r.name) as role_names,
             GROUP_CONCAT(DISTINCT r.code) as role_codes,
             GROUP_CONCAT(DISTINCT r.id) as role_ids
@@ -64,4 +64,12 @@
             <if test="phone != null">#{phone},</if>
         </trim>
     </insert>
+    <select id="getUserMenuByUserId" parameterType="Long" resultType="SystemMenu">
+        SELECT DISTINCT m.* FROM system_menu m WHERE EXISTS
+            (SELECT 1 FROM system_role_menu rm 
+            INNER JOIN system_user_role ur ON rm.role_id=ur.role_id
+            WHERE rm.menu_id=m.id 
+            and ur.user_id=#{userId}
+            ) ORDER BY m.sort ASC;
+    </select>
 </mapper>

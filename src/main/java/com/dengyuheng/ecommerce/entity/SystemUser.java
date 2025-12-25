@@ -17,6 +17,6 @@ public class SystemUser {
     private String avatar;
     private Integer isEnabled;
     private LocalDateTime lastLoginTime;
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private LocalDateTime createAt;
+    private LocalDateTime updateAt;
 }   

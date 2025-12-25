@@ -1,6 +1,7 @@
 package com.dengyuheng.ecommerce.service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dengyuheng.ecommerce.config.PasswordUtil;
+import com.dengyuheng.ecommerce.entity.SystemMenu;
 import com.dengyuheng.ecommerce.entity.SystemUser;
 import com.dengyuheng.ecommerce.entity.SystemUserRole;
 import com.dengyuheng.ecommerce.mapper.SystemUserMapper;
@@ -18,7 +20,7 @@ import com.dengyuheng.ecommerce.mapper.SystemRoleMapper;
 public class SystemUserService {
     
     @Autowired
-    private SystemUserMapper systemUserService;
+    private SystemUserMapper systemUserMapper;
 
     @Autowired
     private PasswordUtil passwordUtil;
@@ -32,7 +34,7 @@ public class SystemUserService {
     @Transactional 
    public Long initSystemUser(SystemUser user){
         user.setPassword(passwordUtil.encode(user.getPassword()));
-        int result = systemUserService.insertSystemUser(user);
+        int result = systemUserMapper.insertSystemUser(user);
          if (result <= 0) {
             throw new RuntimeException("用户创建失败");
         }
@@ -51,7 +53,7 @@ public class SystemUserService {
 
 
     public Map<String, Object> authentication(String username, String password) {
-        SystemUser user = systemUserService.findByUsername(username);
+        SystemUser user = systemUserMapper.findByUsername(username);
         if(user !=null && passwordUtil.matches(password, user.getPassword())){
             Map<String,Object> map =  new HashMap<>();
             map.put("userId",user.getId());
@@ -66,11 +68,14 @@ public class SystemUserService {
     }
 
     public Map<String, Object> getUserInfoById(Long userId) {
-        Map<String, Object> user = systemUserService.getUserInfoById(userId);
+        Map<String, Object> user = systemUserMapper.getUserInfoById(userId);
         if(user != null){
             return user;
         }
         return null;
-
+    }
+    
+    public List<SystemMenu> getUserMenuByUserId(Long userId){
+        return systemUserMapper.getUserMenuByUserId(userId);
     }
 }
